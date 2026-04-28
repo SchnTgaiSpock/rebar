@@ -167,16 +167,7 @@ internal object RebarRecipeListener : Listener {
 
     private fun getCookingRecipe(input: ItemStack, pred: Predicate<CookingRecipeWrapper>? = null): CookingRecipeWrapper? {
         for (recipe in RecipeType.vanillaCookingRecipes()) {
-            if (pred != null && pred.test(recipe)) {
-                Rebar.logger.info("TESTING ${recipe.key}")
-                Rebar.logger.info("$input")
-                Rebar.logger.info("${recipe.recipeInput.items}")
-                Rebar.logger.info(recipe.matches(input).toString())
-            }
             if ((pred == null || pred.test(recipe)) && recipe.matches(input)) {
-                Rebar.logger.info("MATCHES")
-                Rebar.logger.info(input.toString())
-                Rebar.logger.info(recipe.toString())
                 return recipe
             }
         }
@@ -202,13 +193,10 @@ internal object RebarRecipeListener : Listener {
     private fun onStartCook(e: FurnaceStartSmeltEvent) {
         // If a vanilla item matches a vanilla recipe, we leave it
         if (!e.source.isRebarAndIsNot<VanillaCookingItem>() && e.recipe.key in VanillaRecipeType.nonRebarRecipes) {
-            Rebar.logger.info("WAS VANILLA + VANILLA (start cook)")
             return
         }
-        Rebar.logger.info("TRYING REBAR (start cook)")
         val rebarRecipe = getCookingRecipe(e.source) { it.key !in VanillaRecipeType.nonRebarRecipes }
         if (rebarRecipe == null) {
-            Rebar.logger.info("NO REBAR RECIPE FOUND (start cook)")
             e.totalCookTime = Int.MAX_VALUE
         }
     }
