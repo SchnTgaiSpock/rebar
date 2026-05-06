@@ -155,11 +155,11 @@ internal object RebarRecipeListener : Listener {
             e.isCancelled = true
             return
         }
-        val rebarRecipe = RebarRecipe.searchRecipes(recipeType, e.recipe?.key, e.source.hashIgnoreAmount()) {
+        val recipe = RebarRecipe.searchRecipes(recipeType, e.recipe?.key, e.source.hashIgnoreAmount()) {
             it.matches(e.source)
         }
-        if (rebarRecipe != null) {
-            e.result = rebarRecipe.recipe.result.clone()
+        if (recipe != null) {
+            e.result = recipe.recipe.result.clone()
         } else {
             e.isCancelled = true
         }
@@ -167,15 +167,23 @@ internal object RebarRecipeListener : Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     private fun onStartCook(e: FurnaceStartSmeltEvent) {
-        val recipeType = RecipeType.getCookingRecipeTypeByMaterial(e.block.type)
+        val furnace = e.block.state
+        if (furnace !is Furnace) return
+        val recipeType = RecipeType.getCookingRecipeTypeByMaterial(furnace.type)
         if (recipeType == null) {
             e.totalCookTime = Int.MAX_VALUE
             return
         }
-        val rebarRecipe = RebarRecipe.searchRecipes(recipeType, e.recipe.key, e.source.hashIgnoreAmount()) {
+        val recipe = RebarRecipe.searchRecipes(recipeType, e.recipe.key, e.source.hashIgnoreAmount()) {
             it.matches(e.source)
         }
-        if (rebarRecipe == null) {
+        if (recipe == null) {
+            e.totalCookTime = Int.MAX_VALUE
+            return
+        }
+        val resultSlotItem = furnace.inventory.result
+        val canPlaceInOutput = resultSlotItem == null || (recipe.isOutput(resultSlotItem) && resultSlotItem.amount < resultSlotItem.maxStackSize)
+        if (!canPlaceInOutput) {
             e.totalCookTime = Int.MAX_VALUE
         }
     }
@@ -188,10 +196,10 @@ internal object RebarRecipeListener : Listener {
             e.totalCookTime = Int.MAX_VALUE
             return
         }
-        val rebarRecipe = RebarRecipe.searchRecipes(recipeType, e.recipe.key, e.source.hashIgnoreAmount()) {
+        val recipe = RebarRecipe.searchRecipes(recipeType, e.recipe.key, e.source.hashIgnoreAmount()) {
             it.matches(e.source)
         }
-        if (rebarRecipe == null) {
+        if (recipe == null) {
             e.totalCookTime = Int.MAX_VALUE
         }
     }
