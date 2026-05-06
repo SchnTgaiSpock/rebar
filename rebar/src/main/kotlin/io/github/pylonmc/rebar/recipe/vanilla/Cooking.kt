@@ -84,6 +84,7 @@ class SmokingRecipeWrapper @JvmOverloads constructor(
     override val displayBlock = Material.SMOKER
 }
 
+@Suppress("UnstableApiUsage")
 private inline fun <T : CookingRecipe<T>, U : CookingRecipeWrapper> loadCookingRecipe(
     key: NamespacedKey,
     config: ConfigSection,
@@ -94,7 +95,9 @@ private inline fun <T : CookingRecipe<T>, U : CookingRecipeWrapper> loadCookingR
     val cookingTime = config.get("cookingtime", ConfigAdapter.INTEGER, defaultCookingTime)
     val experience = config.get("experience", ConfigAdapter.FLOAT, 0f)
     val ingredient = config.getOrThrow("ingredient", ConfigAdapter.RECIPE_INPUT_ITEM)
-    ingredient.ignoreComponents.add(DataComponentTypes.DAMAGE)
+    if (ingredient.representativeItems.any{ it.hasData(DataComponentTypes.MAX_DAMAGE) }) {
+        ingredient.ignoreComponents.add(DataComponentTypes.DAMAGE)
+    }
     val result = config.getOrThrow("result", ConfigAdapter.ITEM_STACK)
     val recipe = recipeCons(key, result, ingredient.asRecipeChoice(), experience, cookingTime)
     config.get("category", ConfigAdapter.ENUM.from<CookingBookCategory>())?.let { recipe.category = it }
