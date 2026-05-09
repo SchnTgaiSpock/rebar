@@ -1,8 +1,5 @@
 package io.github.pylonmc.rebar.block.base
 
-import com.github.shynixn.mccoroutine.bukkit.launch
-import com.github.shynixn.mccoroutine.bukkit.minecraftDispatcher
-import com.github.shynixn.mccoroutine.bukkit.ticks
 import io.github.pylonmc.rebar.Rebar
 import io.github.pylonmc.rebar.block.BlockStorage
 import io.github.pylonmc.rebar.block.RebarBlock
@@ -14,16 +11,17 @@ import io.github.pylonmc.rebar.entity.display.ItemDisplayBuilder
 import io.github.pylonmc.rebar.entity.display.transform.LineBuilder
 import io.github.pylonmc.rebar.event.*
 import io.github.pylonmc.rebar.event.api.MultiListener
-import io.github.pylonmc.rebar.event.api.annotation.MultiHandler
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandlers
 import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder
 import io.github.pylonmc.rebar.logistics.CargoRoutes
 import io.github.pylonmc.rebar.logistics.LogisticGroup
 import io.github.pylonmc.rebar.logistics.LogisticGroupType
 import io.github.pylonmc.rebar.util.IMMEDIATE_FACES
+import io.github.pylonmc.rebar.util.delayTicks
 import io.github.pylonmc.rebar.util.rebarKey
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.bukkit.Material
 import org.bukkit.block.BlockFace
 import org.bukkit.event.EventHandler
@@ -35,10 +33,10 @@ import kotlin.math.min
 
 /**
  * Represents a block that can connect to cargo ducts and use them to interface
- * with other cargo RebarCargoBlocks.
+ * with other RebarCargoBlocks.
  *
- * Each face can have one logistic group which cargo ducts connected to that face
- * are allowed to interface with
+ * Each face can have one logistic group which cargo ducts (or other RebarCargoBlocks)
+ * connected to that face are allowed to interface with.
  *
  * In your place constructor, you will need to call [addCargoLogisticGroup] for all
  * the block faces you want to be able to connect cargo ducts to, and also
@@ -55,7 +53,7 @@ interface RebarCargoBlock : RebarLogisticBlock, RebarEntityHolderBlock {
 
     @ApiStatus.NonExtendable
     fun addCargoLogisticGroup(face: BlockFace, group: String) {
-        cargoBlockData.groups.put(face, group)
+        cargoBlockData.groups[face] = group
     }
 
     @ApiStatus.NonExtendable
@@ -86,15 +84,17 @@ interface RebarCargoBlock : RebarLogisticBlock, RebarEntityHolderBlock {
         @ApiStatus.NonExtendable
         get() = cargoBlockData.transferRate
 
+    @ApiStatus.NonExtendable
     fun onDuctConnected(event: RebarCargoConnectEvent, priority: EventPriority) {}
 
+    @ApiStatus.NonExtendable
     fun onDuctDisconnected(event: RebarCargoDisconnectEvent, priority: EventPriority) {}
 
     /**
      * Checks if the block can connect to any adjacent cargo blocks, and if so, creates
      * a duct display between this block and the adjacent cargo block in question.
      */
-    @ApiStatus.NonExtendable
+    @ApiStatus.Internal
     fun updateDirectlyConnectedFaces() {
         for (face in IMMEDIATE_FACES) {
             // We iterate IMMEDIATE_FACES instead of [cargoBlockData.groups] in case [cargoBlockData.groups] is
@@ -129,6 +129,7 @@ interface RebarCargoBlock : RebarLogisticBlock, RebarEntityHolderBlock {
         }
     }
 
+    @ApiStatus.Internal
     fun tickCargo() {
         for ((face, group) in cargoBlockData.groups) {
             val sourceGroup = getLogisticGroup(group)
@@ -151,6 +152,7 @@ interface RebarCargoBlock : RebarLogisticBlock, RebarEntityHolderBlock {
         }
     }
 
+    @ApiStatus.Internal
     fun tickCargoFace(sourceGroup: LogisticGroup, targetGroup: LogisticGroup) {
         for (sourceSlot in sourceGroup.slots) {
             val sourceStack = sourceSlot.getItemStack()
@@ -174,6 +176,16 @@ interface RebarCargoBlock : RebarLogisticBlock, RebarEntityHolderBlock {
                     remainingAvailableTransfers,
                     min(targetMaxAmount - targetAmount, sourceAmount),
                 )
+
+                val successSource: Boolean = if (sourceAmount == toTransfer) {
+                    sourceSlot.canSet(null, 0)
+                } else {
+                    sourceSlot.canSet(sourceStack, sourceAmount - toTransfer)
+                }
+                if (!successSource) continue
+
+                val successTarget = targetSlot.canSet(sourceStack, targetAmount + toTransfer)
+                if (!successTarget) continue
 
                 if (sourceAmount == toTransfer) {
                     sourceSlot.set(null, 0)
@@ -215,9 +227,9 @@ interface RebarCargoBlock : RebarLogisticBlock, RebarEntityHolderBlock {
         private val cargoTickers = IdentityHashMap<RebarCargoBlock, Job>()
 
         private fun startTicker(block: RebarCargoBlock) {
-            cargoTickers[block] = Rebar.launch(Rebar.minecraftDispatcher) {
+            cargoTickers[block] = Rebar.scope.launch {
                 while (true) {
-                    delay(RebarConfig.CARGO_TICK_INTERVAL.ticks)
+                    delayTicks(RebarConfig.CARGO_TICK_INTERVAL.toLong())
                     block.tickCargo()
                 }
             }
@@ -314,11 +326,11 @@ interface RebarCargoBlock : RebarLogisticBlock, RebarEntityHolderBlock {
         private fun onDuctConnected(event: RebarCargoConnectEvent, priority: EventPriority) {
             val block1 = event.block1
             if (block1 is RebarCargoBlock) {
-                MultiHandler.handleEvent(block1, "onDuctConnected", event, priority)
+                MultiHandlers.handleEvent(block1, "onDuctConnected", event, priority)
             }
             val block2 = event.block2
             if (block2 is RebarCargoBlock) {
-                MultiHandler.handleEvent(block2, "onDuctConnected", event, priority)
+                MultiHandlers.handleEvent(block2, "onDuctConnected", event, priority)
             }
         }
 
@@ -326,11 +338,11 @@ interface RebarCargoBlock : RebarLogisticBlock, RebarEntityHolderBlock {
         private fun onDuctDisconnected(event: RebarCargoDisconnectEvent, priority: EventPriority) {
             val block1 = event.block1
             if (block1 is RebarCargoBlock) {
-                MultiHandler.handleEvent(block1, "onDuctDisconnected", event, priority)
+                MultiHandlers.handleEvent(block1, "onDuctDisconnected", event, priority)
             }
             val block2 = event.block2
             if (block2 is RebarCargoBlock) {
-                MultiHandler.handleEvent(block2, "onDuctDisconnected", event, priority)
+                MultiHandlers.handleEvent(block2, "onDuctDisconnected", event, priority)
             }
         }
     }

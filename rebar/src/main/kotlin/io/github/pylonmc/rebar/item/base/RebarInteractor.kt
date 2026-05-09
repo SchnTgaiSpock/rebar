@@ -1,14 +1,15 @@
 package io.github.pylonmc.rebar.item.base
 
+import io.github.pylonmc.rebar.event.api.MultiListener
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandlers
+import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import io.github.pylonmc.rebar.item.RebarItem
 import io.github.pylonmc.rebar.item.RebarItemListener
 import io.github.pylonmc.rebar.item.research.Research.Companion.canUse
-import io.github.pylonmc.rebar.event.api.MultiListener
-import io.github.pylonmc.rebar.event.api.annotation.MultiHandler
-import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import org.bukkit.event.Event
 import org.bukkit.event.EventPriority
 import org.bukkit.event.player.PlayerInteractEvent
+import org.jetbrains.annotations.ApiStatus
 
 interface RebarInteractor : RebarCooldownable {
     /**
@@ -16,6 +17,7 @@ interface RebarInteractor : RebarCooldownable {
      */
     fun onUsedToClick(event: PlayerInteractEvent, priority: EventPriority)
 
+    @ApiStatus.Internal
     companion object : MultiListener {
         @UniversalHandler
         private fun onUsedToClick(event: PlayerInteractEvent, priority: EventPriority) {
@@ -33,7 +35,7 @@ interface RebarInteractor : RebarCooldownable {
             }
 
             try {
-                MultiHandler.handleEvent(rebarItem, "onUsedToClick", event, priority)
+                MultiHandlers.handleEvent(rebarItem, "onUsedToClick", event, priority)
             } catch (e: Exception) {
                 RebarItemListener.logEventHandleErr(event, e, rebarItem)
             }

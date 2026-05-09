@@ -1,7 +1,7 @@
 package io.github.pylonmc.rebar.item.base
 
 import io.github.pylonmc.rebar.event.api.MultiListener
-import io.github.pylonmc.rebar.event.api.annotation.MultiHandler
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandlers
 import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import io.github.pylonmc.rebar.item.RebarItem
 import io.github.pylonmc.rebar.item.RebarItemListener
@@ -18,14 +18,14 @@ interface VanillaAnvilItem {
             val rebarItem2 = RebarItem.fromStack(event.inventory.secondItem)
             if (rebarItem1 is VanillaAnvilItem) {
                 try {
-                    MultiHandler.handleEvent(rebarItem1, "onPrepareAnvilCraft", event, priority)
+                    MultiHandlers.handleEvent(rebarItem1, "onPrepareAnvilCraft", event, priority)
                 } catch (e: Exception) {
                     RebarItemListener.logEventHandleErr(event, e, rebarItem1)
                 }
             }
             if (rebarItem2 is VanillaAnvilItem) {
                 try {
-                    MultiHandler.handleEvent(rebarItem2, "onPrepareAnvilCraft", event, priority)
+                    MultiHandlers.handleEvent(rebarItem2, "onPrepareAnvilCraft", event, priority)
                 } catch (e: Exception) {
                     RebarItemListener.logEventHandleErr(event, e, rebarItem2)
                 }

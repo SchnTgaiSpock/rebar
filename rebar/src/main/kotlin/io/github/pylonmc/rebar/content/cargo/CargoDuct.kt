@@ -1,12 +1,10 @@
 package io.github.pylonmc.rebar.content.cargo
 
+import io.github.pylonmc.rebar.Rebar
 import io.github.pylonmc.rebar.block.BlockStorage
 import io.github.pylonmc.rebar.block.RebarBlock
-import io.github.pylonmc.rebar.block.base.RebarBreakHandler
-import io.github.pylonmc.rebar.block.base.RebarCargoBlock
-import io.github.pylonmc.rebar.block.base.RebarEntityHolderBlock
+import io.github.pylonmc.rebar.block.base.*
 import io.github.pylonmc.rebar.block.base.RebarEntityHolderBlock.Companion.holders
-import io.github.pylonmc.rebar.block.base.RebarEntityGroupCulledBlock
 import io.github.pylonmc.rebar.block.context.BlockBreakContext
 import io.github.pylonmc.rebar.block.context.BlockCreateContext
 import io.github.pylonmc.rebar.datatypes.RebarSerializers
@@ -23,6 +21,7 @@ import io.github.pylonmc.rebar.util.position.position
 import io.github.pylonmc.rebar.util.rebarKey
 import io.github.pylonmc.rebar.util.scheduleRemove
 import io.github.pylonmc.rebar.util.setNullable
+import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.block.Block
@@ -33,7 +32,8 @@ import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityRemoveEvent
 import org.bukkit.persistence.PersistentDataContainer
 
-class CargoDuct : RebarBlock, RebarBreakHandler, RebarEntityHolderBlock, RebarEntityGroupCulledBlock {
+class CargoDuct : RebarBlock, RebarBreakHandler, RebarEntityHolderBlock, RebarEntityGroupCulledBlock, RebarFacadeBlock {
+    override val facadeDefaultBlockType = Material.STRUCTURE_VOID
 
     var connectedFaces = mutableListOf<BlockFace>()
     val faceGroups = mutableMapOf<BlockFace, RebarEntityGroupCulledBlock.EntityCullingGroup>()
@@ -42,12 +42,12 @@ class CargoDuct : RebarBlock, RebarBreakHandler, RebarEntityHolderBlock, RebarEn
     override var disableBlockTextureEntity = true
 
     @Suppress("unused")
-    constructor(block: Block, context: BlockCreateContext) : super(block) {
+    constructor(block: Block, context: BlockCreateContext) : super(block, context) {
         updateConnectedFaces()
     }
 
     @Suppress("unused")
-    constructor(block: Block, pdc: PersistentDataContainer) : super(block) {
+    constructor(block: Block, pdc: PersistentDataContainer) : super(block, pdc) {
         connectedFaces = pdc.get(connectedFacesKey, connectedFacesType)!!.toMutableList()
     }
 
@@ -291,7 +291,13 @@ class CargoDuct : RebarBlock, RebarBreakHandler, RebarEntityHolderBlock, RebarEn
         associatedBlocks.add(from.position)
         // (middle)
         var current = from
+        var count = 0
         while (true) {
+            if (count > 1000) {
+                throw RuntimeException("Loop in cargo duct logic update detected; please open a bug report and show this error")
+            }
+            count++
+
             current = current.getRelative(fromToFace)
             if (current == to) {
                 break

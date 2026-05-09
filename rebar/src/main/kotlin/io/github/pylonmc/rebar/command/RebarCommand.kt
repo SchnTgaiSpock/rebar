@@ -3,7 +3,6 @@
 package io.github.pylonmc.rebar.command
 
 import com.destroystokyo.paper.profile.PlayerProfile
-import com.github.shynixn.mccoroutine.bukkit.launch
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.LongArgumentType
@@ -12,6 +11,7 @@ import io.github.pylonmc.rebar.Rebar
 import io.github.pylonmc.rebar.addon.RebarAddon
 import io.github.pylonmc.rebar.block.BlockStorage
 import io.github.pylonmc.rebar.block.RebarBlockSchema
+import io.github.pylonmc.rebar.block.base.RebarSimpleMultiblock
 import io.github.pylonmc.rebar.content.debug.DebugWaxedWeatheredCutCopperStairs
 import io.github.pylonmc.rebar.content.guide.RebarGuide
 import io.github.pylonmc.rebar.entity.display.transform.Rotation
@@ -25,7 +25,7 @@ import io.github.pylonmc.rebar.item.research.addResearch
 import io.github.pylonmc.rebar.item.research.hasResearch
 import io.github.pylonmc.rebar.item.research.removeResearch
 import io.github.pylonmc.rebar.metrics.RebarMetrics
-import io.github.pylonmc.rebar.particles.ConfettiParticle
+import io.github.pylonmc.rebar.util.ConfettiParticle
 import io.github.pylonmc.rebar.recipe.ConfigurableRecipeType
 import io.github.pylonmc.rebar.recipe.RecipeType
 import io.github.pylonmc.rebar.registry.RebarRegistry
@@ -42,6 +42,7 @@ import io.papermc.paper.command.brigadier.argument.resolvers.selector.EntitySele
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver
 import io.papermc.paper.math.FinePosition
 import kotlinx.coroutines.future.await
+import kotlinx.coroutines.launch
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.ComponentLike
 import net.kyori.adventure.text.JoinConfiguration
@@ -151,13 +152,15 @@ private val setblock = buildCommand("setblock") {
                 if (!location.world.isPositionLoaded(location)) {
                     source.sender.sendMessage(Component.translatable("argument.pos.unloaded"))
                     return@executes
-                } else if (location.blockX !in -30000000..30000000 || location.blockZ !in -30000000..30000000 || location.blockY !in location.world.minHeight..location.world.maxHeight) {
+                } else if (!location.world.worldBorder.isInside(location)) {
                     source.sender.sendMessage(Component.translatable("argument.pos.outofworld"))
                     return@executes
                 }
 
                 val block = getArgument<RebarBlockSchema>("block")
-                val failed = BlockStorage.placeBlock(location, block.key) == null
+                val failed = BlockStorage.isRebarBlock(location)
+                        || BlockStorage.placeBlock(location, block.key) == null
+                
                 source.sender.sendVanillaFeedback(
                     if (failed) "setblock.failed" else "setblock.success",
                     Component.text(location.blockX), Component.text(location.blockY), Component.text(location.blockZ)
@@ -180,7 +183,7 @@ private val gametest = buildCommand("gametest") {
                     RebarArgument.of("test", test.key.toString()),
                     RebarArgument.of("location", position.toString())
                 )
-                Rebar.launch {
+                Rebar.scope.launch {
                     val result = test.launch(position).await()
                     if (result != null) {
                         player.sendFeedback(
@@ -401,7 +404,7 @@ private val exposeRecipeConfig = buildCommand("exposerecipeconfig") {
                 }
                 sender.sendFeedback(
                     "exposerecipe.warning",
-                    RebarArgument.of("file", "plugins/rbbar/${recipeType.filePath}")
+                    RebarArgument.of("file", "plugins/Rebar/${recipeType.filePath}")
                 )
                 mergeGlobalConfig(addon, recipeType.filePath, recipeType.filePath)
             }
@@ -447,7 +450,7 @@ private val setphantom = buildCommand("setphantom") {
             if (!position.world.isPositionLoaded(position)) {
                 source.sender.sendMessage(Component.translatable("argument.pos.unloaded"))
                 return@executes
-            } else if (position.blockX !in -30000000..30000000 || position.blockZ !in -30000000..30000000 || position.blockY !in position.world.minHeight..position.world.maxHeight) {
+            } else if (!position.world.worldBorder.isInside(position)) {
                 source.sender.sendMessage(Component.translatable("argument.pos.outofworld"))
                 return@executes
             }
@@ -460,6 +463,58 @@ private val setphantom = buildCommand("setphantom") {
 
             BlockStorage.makePhantom(block)
             source.sender.sendVanillaFeedback("setblock.success", Component.text(position.blockX), Component.text(position.blockY), Component.text(position.blockZ))
+        }
+    }
+}
+
+private val finishMultiblock = buildCommand("finishmultiblock") {
+    permission("rebar.command.finishmultiblock")
+    executesWithPlayer { player ->
+        RebarMetrics.onCommandRun("/rb finishmultiblock")
+
+        val multiblock = player.getTargetBlockExact(5)?.let {
+            BlockStorage.getAs<RebarSimpleMultiblock>(it)
+        }
+        if (multiblock == null) {
+            player.sendFeedback("finishmultiblock.failed")
+            return@executesWithPlayer
+        }
+
+        for ((position, block) in multiblock.components) {
+            block.placeDefaultBlock(multiblock.getMultiblockBlock(position))
+        }
+
+        // finish sub-multiblocks (e.g. hatches)
+        for ((position, block) in multiblock.components) {
+            BlockStorage.getAs<RebarSimpleMultiblock>(multiblock.getMultiblockBlock(position))?.let { subMultiblock ->
+                for ((position, block) in subMultiblock.components) {
+                    block.placeDefaultBlock(subMultiblock.getMultiblockBlock(position))
+                }
+            }
+        }
+
+        player.sendFeedback("finishmultiblock.success")
+    }
+}
+
+private val forceload = buildCommand("forceload") {
+    argument("radius", IntegerArgumentType.integer(1)) {
+        executesWithPlayer { player ->
+            RebarMetrics.onCommandRun("/rb forceload")
+            val radius = IntegerArgumentType.getInteger(this, "radius")
+            val center = player.location.chunk
+            for (x in -radius..radius) {
+                for (z in -radius..radius) {
+                    player.world.getChunkAt(center.x + x, center.z + z).isForceLoaded = true
+                    player.sendMessage(
+                        Component.translatable(
+                            "rebar.message.command.forceload",
+                            RebarArgument.of("x", center.x + x),
+                            RebarArgument.of("z", center.z + z)
+                        )
+                    )
+                }
+            }
         }
     }
 }
@@ -482,6 +537,8 @@ internal val ROOT_COMMAND = buildCommand("rebar") {
     then(research)
     then(exposeRecipeConfig)
     then(confetti)
+    then(finishMultiblock)
+    then(forceload)
 }
 
 @JvmSynthetic

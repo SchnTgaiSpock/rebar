@@ -199,7 +199,7 @@ open class ItemStackBuilder internal constructor(val stack: ItemStack) : ItemPro
         replaceExisting: Boolean = true
     ) = apply {
         editDataOrSet(DataComponentTypes.ATTRIBUTE_MODIFIERS) { modifiers ->
-            val copying = modifiers?.modifiers()?.filter { !replaceExisting || it.modifier().key != modifier.key }
+            val copying = modifiers?.modifiers()?.filter { !replaceExisting || it.attribute() != attribute || it.modifier().key != modifier.key }
             ItemAttributeModifiers.itemAttributes().copy(copying)
                 .addModifier(attribute, modifier)
                 .build()
@@ -252,8 +252,8 @@ open class ItemStackBuilder internal constructor(val stack: ItemStack) : ItemPro
     ) = apply {
         removeAttributeModifiers(Attribute.ARMOR)
         removeAttributeModifiers(Attribute.ARMOR_TOUGHNESS)
-        addAttributeModifier(Attribute.ARMOR, AttributeModifier(baseArmor, armor, AttributeModifier.Operation.ADD_NUMBER, slot))
-        addAttributeModifier(Attribute.ARMOR_TOUGHNESS, AttributeModifier(baseArmorToughness, armorToughness, AttributeModifier.Operation.ADD_NUMBER, slot))
+        addAttributeModifier(Attribute.ARMOR, AttributeModifier(vanillaArmorKey(slot), armor, AttributeModifier.Operation.ADD_NUMBER, slot))
+        addAttributeModifier(Attribute.ARMOR_TOUGHNESS, AttributeModifier(vanillaArmorKey(slot), armorToughness, AttributeModifier.Operation.ADD_NUMBER, slot))
     }
 
     fun axe(
@@ -336,15 +336,29 @@ open class ItemStackBuilder internal constructor(val stack: ItemStack) : ItemPro
     override fun get(locale: Locale) = build()
 
     companion object {
-
-        val baseArmor = NamespacedKey.minecraft("base_armor")
-        val baseArmorToughness = NamespacedKey.minecraft("base_armor_toughness")
-
         val baseAttackDamage = NamespacedKey.minecraft("base_attack_damage")
         val baseAttackSpeed = NamespacedKey.minecraft("base_attack_speed")
         val baseAttackKnockback = NamespacedKey.minecraft("base_attack_knockback")
 
         val disableNameHacksKey = rebarKey("disable_name_hacks")
+
+        private fun vanillaArmorType(slot: EquipmentSlotGroup) = when (slot) {
+            EquipmentSlotGroup.HEAD -> "helmet"
+            EquipmentSlotGroup.CHEST -> "chestplate"
+            EquipmentSlotGroup.LEGS -> "leggings"
+            EquipmentSlotGroup.FEET -> "boots"
+            EquipmentSlotGroup.BODY -> "body"
+            else -> slot.toString() // All others are not an ArmorType vanilla logic wise
+        }
+
+        /**
+         * Mimics the NMS logic for creating base armor attributes so that they display correctly in the tooltip
+         * This key should be used for base armor, armor toughness, and knockback resistance.
+         */
+        @JvmStatic
+        fun vanillaArmorKey(slot: EquipmentSlotGroup) : NamespacedKey {
+            return NamespacedKey.minecraft("armor.${vanillaArmorType(slot)}")
+        }
 
         /**
          * The default name language key for a Rebar item.
@@ -623,10 +637,15 @@ open class ItemStackBuilder internal constructor(val stack: ItemStack) : ItemPro
          * armor: 2.0 # double
          * armor-toughness: 0.5 # double
          * durability: 250 # integer
+         * enchantability: 10 # integer
          * ```
          */
         @JvmStatic
         fun rebarArmor(stack: ItemStack, key: NamespacedKey, slot: EquipmentSlotGroup, hasDurability: Boolean) = rebar(stack, key) { builder, settings ->
+            settings.get("enchantability", ConfigAdapter.INTEGER)?.apply {
+                builder.set(DataComponentTypes.ENCHANTABLE, Enchantable.enchantable(this))
+            }
+
             builder.armor(
                 slot,
                 settings.getOrThrow("armor", ConfigAdapter.DOUBLE),
@@ -670,10 +689,15 @@ open class ItemStackBuilder internal constructor(val stack: ItemStack) : ItemPro
          * mining-speed: 8.0 # double
          * mining-durability-damage: 1 # integer
          * durability: 500 # integer
+         * enchantability: 10 # integer
          * ```
          */
         @JvmStatic
         fun rebarTool(stack: ItemStack, key: NamespacedKey, mineable: RegistryKeySet<BlockType>, hasDurability: Boolean) = rebar(stack, key) { builder, settings ->
+            settings.get("enchantability", ConfigAdapter.INTEGER)?.apply {
+                builder.set(DataComponentTypes.ENCHANTABLE, Enchantable.enchantable(this))
+            }
+
             builder.tool(
                 mineable,
                 settings.getOrThrow("mining-speed", ConfigAdapter.FLOAT),
@@ -726,10 +750,15 @@ open class ItemStackBuilder internal constructor(val stack: ItemStack) : ItemPro
          * attack-knockback: 0.4 # double
          * disable-shield-seconds: 3.0 # float
          * durability: 500 # integer
+         * enchantability: 10 # integer
          * ```
          */
         @JvmStatic
         fun rebarWeapon(stack: ItemStack, key: NamespacedKey, hasDurability: Boolean, hasKnockback: Boolean, disablesShield: Boolean) = rebar(stack, key) { builder, settings ->
+            settings.get("enchantability", ConfigAdapter.INTEGER)?.apply {
+                builder.set(DataComponentTypes.ENCHANTABLE, Enchantable.enchantable(this))
+            }
+
             builder.weapon(
                 settings.getOrThrow("attack-damage", ConfigAdapter.DOUBLE),
                 settings.getOrThrow("attack-speed", ConfigAdapter.DOUBLE),

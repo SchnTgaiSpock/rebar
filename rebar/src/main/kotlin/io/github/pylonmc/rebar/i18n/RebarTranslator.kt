@@ -3,15 +3,12 @@ package io.github.pylonmc.rebar.i18n
 import io.github.pylonmc.rebar.Rebar
 import io.github.pylonmc.rebar.addon.RebarAddon
 import io.github.pylonmc.rebar.config.Config
-import io.github.pylonmc.rebar.config.RebarConfig
 import io.github.pylonmc.rebar.config.adapter.ConfigAdapter
 import io.github.pylonmc.rebar.datatypes.RebarSerializers
 import io.github.pylonmc.rebar.event.RebarRegisterEvent
 import io.github.pylonmc.rebar.event.RebarUnregisterEvent
 import io.github.pylonmc.rebar.i18n.RebarTranslator.Companion.translator
-import io.github.pylonmc.rebar.i18n.wrapping.LineWrapEncoder
 import io.github.pylonmc.rebar.item.builder.ItemStackBuilder
-import io.github.pylonmc.rebar.item.builder.customMiniMessage
 import io.github.pylonmc.rebar.nms.NmsAccessor
 import io.github.pylonmc.rebar.registry.RebarRegistry
 import io.github.pylonmc.rebar.util.editData
@@ -23,9 +20,7 @@ import io.papermc.paper.datacomponent.item.ItemLore
 import io.papermc.paper.datacomponent.item.ResolvableProfile
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.*
-import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.Style
-import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.translation.GlobalTranslator
 import net.kyori.adventure.translation.Translator
 import org.apache.commons.lang3.LocaleUtils
@@ -39,8 +34,7 @@ import org.bukkit.event.player.PlayerLocaleChangeEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.inventory.ItemStack
 import java.text.MessageFormat
-import java.util.Locale
-import java.util.WeakHashMap
+import java.util.*
 import kotlin.io.path.exists
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.nameWithoutExtension
@@ -80,11 +74,11 @@ class RebarTranslator private constructor(private val addon: RebarAddon) : Trans
     }
 
     override fun canTranslate(key: String, locale: Locale): Boolean {
-        return getRawTranslation(key, locale, warn = false) != null
+        return getRawTranslation(key, locale) != null
     }
 
     override fun translate(component: TranslatableComponent, locale: Locale): Component? {
-        var translation = getRawTranslation(component.key(), locale, warn = true) ?: return null
+        var translation = getRawTranslation(component.key(), locale) ?: return null
         for (arg in component.arguments()) {
             var componentArg = arg.asComponent()
             if (componentArg is TextComponent && componentArg.content().startsWith("rebar:")) {
@@ -108,37 +102,29 @@ class RebarTranslator private constructor(private val addon: RebarAddon) : Trans
             .style(translation.style().merge(component.style(), Style.Merge.Strategy.IF_ABSENT_ON_TARGET))
     }
 
-    private fun getRawTranslation(translationKey: String, locale: Locale, warn: Boolean): Component? {
+    private fun getRawTranslation(translationKey: String, locale: Locale): Component? {
         return translationCache.getOrPut(locale to translationKey) {
             val parts = translationKey.split('.', limit = 2)
             if (parts.size < 2) return null
             val (addon, key) = parts
             if (addon != addonNamespace) return null
-            val translations = findCommonLocale(locale)?.let(this.translations::get)
-            if (translations == null) {
-                if (warn && locale !in warned) {
-                    this.addon.javaPlugin.logger.warning("No translations found for locale '$locale'")
-                    warned.add(locale)
-                }
-                return Component.text("Language '$locale' not supported")
-                    .color(NamedTextColor.RED)
-                    .decoration(TextDecoration.ITALIC, true)
-            }
+            val translations = findTranslations(locale) ?: return null
             val translation = translations.get(key, ConfigAdapter.STRING) ?: return null
             customMiniMessage.deserialize(translation)
         }
     }
 
-    private fun findCommonLocale(locale: Locale): Locale? {
+    private fun findTranslations(locale: Locale): Config? {
         val languageRange = languageRanges.getOrPut(locale) {
-            val lookupList = LocaleUtils.localeLookupList(locale).reversed()
-            lookupList
+            val lookupList = LocaleUtils.localeLookupList(locale)
+            lookupList.reversed()
                 .mapIndexed { index, value ->
                     Locale.LanguageRange(value.toString().replace('_', '-'), (index + 1.0) / lookupList.size)
                 }
                 .sortedByDescending { it.weight }
         }
-        return Locale.lookup(languageRange, translations.keys)
+        return Locale.lookup(languageRange, this.translations.keys)?.let(translations::get)
+            ?: findTranslations(addon.languages.first())
     }
 
     override fun name(): Key = addon.key
@@ -217,8 +203,8 @@ class RebarTranslator private constructor(private val addon: RebarAddon) : Trans
                         // Potions are wacky wrt names, so we lie to the client about the type and set the model data
                         val oldStack = clone()
                         @Suppress("DEPRECATION")
-                        type = Material.GLASS_BOTTLE
-                        check(type == Material.GLASS_BOTTLE) { "ItemStack.setType no longer works" }
+                        type = Material.CLAY_BALL
+                        check(type == Material.CLAY_BALL) { "ItemStack.setType no longer works" }
                         copyDataFrom(oldStack) { true }
                         editData(DataComponentTypes.ITEM_MODEL) { oldStack.type.key }
                     }
@@ -246,16 +232,8 @@ class RebarTranslator private constructor(private val addon: RebarAddon) : Trans
                     }
                     val translated = GlobalTranslator.render(line.withArguments(concatenatedArguments), locale)
                     if (translated.plainText.isBlank()) return@flatMap emptyList()
-                    val encoded = LineWrapEncoder.encode(translated)
-                    val wrapped = encoded.copy(
-                        lines = encoded.lines.flatMap { wrapText(it, RebarConfig.TRANSLATION_WRAP_LIMIT) }
-                    )
-                    wrapped.toComponentLines().map {
-                        Component.text()
-                            .decoration(TextDecoration.ITALIC, false)
-                            .color(NamedTextColor.GRAY)
-                            .append(it)
-                            .build()
+                    splitByNewlines(translated).flatMap {
+                        wrapLine(it)
                     }
                 }
                 ItemLore.lore(newLore)

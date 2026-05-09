@@ -4,7 +4,7 @@ import com.destroystokyo.paper.event.entity.EntityJumpEvent
 import io.github.pylonmc.rebar.entity.EntityListener.logEventHandleErr
 import io.github.pylonmc.rebar.entity.EntityStorage
 import io.github.pylonmc.rebar.event.api.MultiListener
-import io.github.pylonmc.rebar.event.api.annotation.MultiHandler
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandlers
 import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import io.papermc.paper.event.entity.EntityKnockbackEvent
 import io.papermc.paper.event.entity.EntityMoveEvent
@@ -12,6 +12,7 @@ import io.papermc.paper.event.entity.EntityToggleSitEvent
 import org.bukkit.event.EventPriority
 import org.bukkit.event.entity.EntityToggleGlideEvent
 import org.bukkit.event.entity.EntityToggleSwimEvent
+import org.jetbrains.annotations.ApiStatus
 
 interface RebarMovingEntity {
     fun onMove(event: EntityMoveEvent, priority: EventPriority) {}
@@ -21,13 +22,14 @@ interface RebarMovingEntity {
     fun onToggleGlide(event: EntityToggleGlideEvent, priority: EventPriority) {}
     fun onToggleSit(event: EntityToggleSitEvent, priority: EventPriority) {}
 
+    @ApiStatus.Internal
     companion object : MultiListener {
         @UniversalHandler
         private fun onMove(event: EntityMoveEvent, priority: EventPriority) {
             val rebarEntity = EntityStorage.get(event.entity)
             if (rebarEntity is RebarMovingEntity) {
                 try {
-                    MultiHandler.handleEvent(rebarEntity, "onMove", event, priority)
+                    MultiHandlers.handleEvent(rebarEntity, "onMove", event, priority)
                 } catch (e: Exception) {
                     logEventHandleErr(event, e, rebarEntity)
                 }
@@ -39,7 +41,7 @@ interface RebarMovingEntity {
             val rebarEntity = EntityStorage.get(event.entity)
             if (rebarEntity is RebarMovingEntity) {
                 try {
-                    MultiHandler.handleEvent(rebarEntity, "onJump", event, priority)
+                    MultiHandlers.handleEvent(rebarEntity, "onJump", event, priority)
                 } catch (e: Exception) {
                     logEventHandleErr(event, e, rebarEntity)
                 }
@@ -51,7 +53,7 @@ interface RebarMovingEntity {
             val rebarEntity = EntityStorage.get(event.entity)
             if (rebarEntity is RebarMovingEntity) {
                 try {
-                    MultiHandler.handleEvent(rebarEntity, "onKnockback", event, priority)
+                    MultiHandlers.handleEvent(rebarEntity, "onKnockback", event, priority)
                 } catch (e: Exception) {
                     logEventHandleErr(event, e, rebarEntity)
                 }
@@ -63,7 +65,7 @@ interface RebarMovingEntity {
             val rebarEntity = EntityStorage.get(event.entity)
             if (rebarEntity is RebarMovingEntity) {
                 try {
-                    MultiHandler.handleEvent(rebarEntity, "onToggleSwim", event, priority)
+                    MultiHandlers.handleEvent(rebarEntity, "onToggleSwim", event, priority)
                 } catch (e: Exception) {
                     logEventHandleErr(event, e, rebarEntity)
                 }
@@ -75,7 +77,7 @@ interface RebarMovingEntity {
             val rebarEntity = EntityStorage.get(event.entity)
             if (rebarEntity is RebarMovingEntity) {
                 try {
-                    MultiHandler.handleEvent(rebarEntity, "onToggleGlide", event, priority)
+                    MultiHandlers.handleEvent(rebarEntity, "onToggleGlide", event, priority)
                 } catch (e: Exception) {
                     logEventHandleErr(event, e, rebarEntity)
                 }
@@ -87,7 +89,7 @@ interface RebarMovingEntity {
             val rebarEntity = EntityStorage.get(event.entity)
             if (rebarEntity is RebarMovingEntity) {
                 try {
-                    MultiHandler.handleEvent(rebarEntity, "onToggleSit", event, priority)
+                    MultiHandlers.handleEvent(rebarEntity, "onToggleSit", event, priority)
                 } catch (e: Exception) {
                     logEventHandleErr(event, e, rebarEntity)
                 }

@@ -1,7 +1,5 @@
 package io.github.pylonmc.rebar.item.research
 
-import com.github.shynixn.mccoroutine.bukkit.launch
-import com.github.shynixn.mccoroutine.bukkit.ticks
 import io.github.pylonmc.rebar.Rebar
 import io.github.pylonmc.rebar.config.ConfigSection
 import io.github.pylonmc.rebar.config.RebarConfig
@@ -9,15 +7,15 @@ import io.github.pylonmc.rebar.config.adapter.ConfigAdapter
 import io.github.pylonmc.rebar.datatypes.RebarSerializers
 import io.github.pylonmc.rebar.i18n.RebarArgument
 import io.github.pylonmc.rebar.item.RebarItem
+import io.github.pylonmc.rebar.item.RebarItemSchema
 import io.github.pylonmc.rebar.item.research.Research.Companion.canPickUp
-import io.github.pylonmc.rebar.particles.ConfettiParticle
+import io.github.pylonmc.rebar.util.ConfettiParticle
 import io.github.pylonmc.rebar.recipe.FluidOrItem
 import io.github.pylonmc.rebar.recipe.RecipeType
 import io.github.pylonmc.rebar.recipe.vanilla.VanillaRecipeType
 import io.github.pylonmc.rebar.registry.RebarRegistry
 import io.github.pylonmc.rebar.util.persistentData
 import io.github.pylonmc.rebar.util.rebarKey
-import kotlinx.coroutines.delay
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
@@ -30,6 +28,8 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityPickupItemEvent
+import org.bukkit.event.inventory.InventoryCloseEvent
+import org.bukkit.event.inventory.InventoryOpenEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.inventory.ItemStack
 import kotlin.math.min
@@ -189,6 +189,12 @@ class Research(
         fun removeResearch(player: Player, research: Research)
             = setResearches(player, getResearches(player) - research)
 
+        @JvmStatic
+        @JvmOverloads
+        @JvmName("canPlayerCraft")
+        fun Player.canCraft(item: RebarItem, sendMessage: Boolean = false, respectBypass: Boolean = true): Boolean
+            = canCraft(item.schema, sendMessage, respectBypass)
+
         /**
          * Checks whether a player can craft an item (ie has the associated research, or
          * has permission to bypass research.
@@ -199,10 +205,10 @@ class Research(
         @JvmStatic
         @JvmOverloads
         @JvmName("canPlayerCraft")
-        fun Player.canCraft(item: RebarItem, sendMessage: Boolean = false, respectBypass: Boolean = true): Boolean {
-            if (!RebarConfig.ResearchConfig.ENABLED || (respectBypass && this.hasPermission(item.researchBypassPermission))) return true
+        fun Player.canCraft(schema: RebarItemSchema, sendMessage: Boolean = false, respectBypass: Boolean = true): Boolean {
+            if (!RebarConfig.ResearchConfig.ENABLED || (respectBypass && this.hasPermission(schema.researchBypassPermission))) return true
 
-            val research = item.research ?: return true
+            val research = schema.research ?: return true
 
             val canUse = this.hasResearch(research)
             if (!canUse && sendMessage) {
@@ -222,7 +228,7 @@ class Research(
                 this.sendMessage(
                     Component.translatable(
                         "rebar.message.research.unknown",
-                        RebarArgument.of("item", item.stack.effectiveName()),
+                        RebarArgument.of("item", schema.getItemStack().effectiveName()),
                         RebarArgument.of("research", researchName)
                     )
                 )
@@ -243,6 +249,12 @@ class Research(
         @JvmName("canPlayerPickUp")
         fun Player.canPickUp(item: RebarItem, sendMessage: Boolean = false): Boolean = canCraft(item, sendMessage)
 
+        @JvmStatic
+        @JvmOverloads
+        @JvmName("canPlayerUse")
+        fun Player.canUse(item: RebarItem, sendMessage: Boolean = false): Boolean
+            = canUse(item.schema, sendMessage)
+
         /**
          * Checks whether a player can use an item (ie has the associated research, or
          * has permission to bypass research.
@@ -253,31 +265,45 @@ class Research(
         @JvmStatic
         @JvmOverloads
         @JvmName("canPlayerUse")
-        fun Player.canUse(item: RebarItem, sendMessage: Boolean = false): Boolean {
-            if (RebarConfig.DISABLED_ITEMS.contains(item.key)) {
+        fun Player.canUse(schema: RebarItemSchema, sendMessage: Boolean = false): Boolean {
+            if (RebarConfig.DISABLED_ITEMS.contains(schema.key)) {
                 if (sendMessage) {
                     this.sendMessage(
                         Component.translatable(
                             "rebar.message.disabled.message",
-                            RebarArgument.of("item", item.stack.effectiveName()),
+                            RebarArgument.of("item", schema.getItemStack().effectiveName()),
                         )
                     )
                 }
                 return false
             }
 
-            return canCraft(item, sendMessage)
+            return canCraft(schema, sendMessage)
         }
 
         @EventHandler
         private fun onPlayerPickup(event: EntityPickupItemEvent) {
             val entity = event.entity
             if (entity is Player) {
-                Rebar.launch {
-                    delay(1.ticks)
-                    entity.ejectUnknownItems()
+                val rebar = RebarItem.fromStack(event.item.itemStack)
+                if (rebar == null) return
+
+                if (!entity.canPickUp(rebar, sendMessage = true)) {
+                    // See net.minecraft.world.entity.item.ItemEntity#setDefaultPickUpDelay
+                    event.item.pickupDelay = 10
+                    event.isCancelled = true
                 }
             }
+        }
+
+        @EventHandler
+        private fun onPlayerOpenInventory(event: InventoryOpenEvent) {
+            (event.player as Player).ejectUnknownItems()
+        }
+
+        @EventHandler
+        private fun onPlayerCloseInventory(event: InventoryCloseEvent) {
+            (event.player as Player).ejectUnknownItems()
         }
 
         @EventHandler
@@ -326,7 +352,7 @@ private fun Player.ejectUnknownItems() {
         rebarItem != null && !canPickUp(rebarItem, sendMessage = true)
     }
     for (item in toRemove) {
-        inventory.remove(item)
+        inventory.removeItemAnySlot(item)
         dropItem(item)
     }
 }

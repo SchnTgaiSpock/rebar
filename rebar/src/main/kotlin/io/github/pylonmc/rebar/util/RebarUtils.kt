@@ -10,22 +10,19 @@ import io.github.pylonmc.rebar.config.ConfigSection
 import io.github.pylonmc.rebar.config.ContributorConfig
 import io.github.pylonmc.rebar.config.adapter.ConfigAdapter
 import io.github.pylonmc.rebar.item.RebarItem
-import io.github.pylonmc.rebar.item.builder.customMiniMessage
+import io.github.pylonmc.rebar.i18n.customMiniMessage
 import io.github.pylonmc.rebar.nms.NmsAccessor
 import io.github.pylonmc.rebar.registry.RebarRegistry
 import io.github.pylonmc.rebar.util.position.BlockPosition
 import io.papermc.paper.datacomponent.DataComponentType
 import io.papermc.paper.registry.keys.tags.BlockTypeTagKeys
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.TranslatableComponent
 import net.kyori.adventure.text.TranslationArgumentLike
-import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-import org.bukkit.Bukkit
-import org.bukkit.Material
-import org.bukkit.NamespacedKey
-import org.bukkit.Registry
-import org.bukkit.World
+import org.bukkit.*
 import org.bukkit.attribute.Attribute
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
@@ -54,6 +51,7 @@ import java.lang.Math
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.util.function.Consumer
+import kotlin.coroutines.CoroutineContext
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.round
@@ -297,8 +295,7 @@ internal fun Class<*>.findConstructorMatching(vararg types: Class<*>): MethodHan
 
 // I can never remember which way around `isAssignableFrom` goes,
 // so this is a helper function to make it more readable
-@JvmSynthetic
-private fun Class<*>.isSubclassOf(other: Class<*>): Boolean = other.isAssignableFrom(this)
+fun Class<*>.isSubclassOf(other: Class<*>): Boolean = other.isAssignableFrom(this)
 
 /**
  * Small helper function to convert a minimessage string (eg: '<red>bruh') into a component
@@ -432,6 +429,7 @@ val Player.pdc: PersistentDataContainer
  * @param warnMissing if set to true, the logger will warn if the resource in [from] is missing
  * @return The merged config
  */
+@JvmSynthetic
 internal fun mergeGlobalConfig(addon: RebarAddon, from: String, to: String, warnMissing: Boolean = true): Config {
     require(from.endsWith(".yml")) { "Config file must be a YAML file" }
     require(to.endsWith(".yml")) { "Config file must be a YAML file" }
@@ -461,6 +459,7 @@ internal fun mergeGlobalConfig(addon: RebarAddon, from: String, to: String, warn
 
 private val globalConfigCache: MutableMap<Pair<String, String>, Config> = mutableMapOf()
 
+@JvmSynthetic
 internal fun getContributors(addon: RebarAddon): List<ContributorConfig> {
     val cached = contributorsCache[addon]
     if (cached != null) {
@@ -618,3 +617,14 @@ fun getBlockBreakTicks(tool: ItemStack, block: Block)
  * Schedules the entity to be removed next tick
  */
 fun Entity.scheduleRemove() = Bukkit.getScheduler().runTask(Rebar, this::remove)
+
+fun Block.getRelative(vector: Vector3i) = this.getRelative(vector.x, vector.y, vector.z)
+
+@JvmSynthetic
+suspend fun delayTicks(ticks: Long) = delay(ticks * 50)
+
+/**
+ * Creates a [CoroutineContext] for a child coroutine, with a [Job] that is a child of the current context's [Job]
+ */
+@JvmSynthetic
+fun CoroutineContext.createChildContext(): CoroutineContext = this + Job(this[Job])

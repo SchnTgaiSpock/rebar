@@ -4,7 +4,7 @@ import io.github.pylonmc.rebar.block.BlockListener
 import io.github.pylonmc.rebar.block.BlockListener.logEventHandleErr
 import io.github.pylonmc.rebar.block.BlockStorage
 import io.github.pylonmc.rebar.event.api.MultiListener
-import io.github.pylonmc.rebar.event.api.annotation.MultiHandler
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandlers
 import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import net.kyori.adventure.key.Key
 import org.bukkit.Material
@@ -12,6 +12,7 @@ import org.bukkit.Registry
 import org.bukkit.entity.Player
 import org.bukkit.event.EventPriority
 import org.bukkit.event.entity.EntityChangeBlockEvent
+import org.jetbrains.annotations.ApiStatus
 
 interface RebarCopperBlock {
 
@@ -19,6 +20,7 @@ interface RebarCopperBlock {
     fun scrapeWaxOff(event: EntityChangeBlockEvent, priority: EventPriority)
     fun scrapeOxidation(event: EntityChangeBlockEvent, priority: EventPriority)
 
+    @ApiStatus.Internal
     companion object : MultiListener {
 
         private val COPPER_TYPES = setOf(
@@ -80,7 +82,7 @@ interface RebarCopperBlock {
 
             if (rebarBlock is RebarCopperBlock) {
                 try {
-                    MultiHandler.handleEvent(rebarBlock, method, event, priority)
+                    MultiHandlers.handleEvent(rebarBlock, method, event, priority)
                 } catch (e: Exception) {
                     BlockListener.logEventHandleErr(event, e, rebarBlock)
                 }

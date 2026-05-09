@@ -1,15 +1,16 @@
 package io.github.pylonmc.rebar.item.base
 
+import io.github.pylonmc.rebar.event.api.MultiListener
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandlers
+import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import io.github.pylonmc.rebar.item.RebarItem
 import io.github.pylonmc.rebar.item.RebarItemListener
 import io.github.pylonmc.rebar.item.research.Research.Companion.canUse
-import io.github.pylonmc.rebar.event.api.MultiListener
-import io.github.pylonmc.rebar.event.api.annotation.MultiHandler
-import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
+import org.bukkit.entity.Player
 import org.bukkit.event.EventPriority
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDeathEvent
-import org.bukkit.entity.Player
+import org.jetbrains.annotations.ApiStatus
 
 interface RebarWeapon {
     /**
@@ -22,6 +23,7 @@ interface RebarWeapon {
      */
     fun onUsedToKillEntity(event: EntityDeathEvent, priority: EventPriority) {}
 
+    @ApiStatus.Internal
     companion object : MultiListener {
         @UniversalHandler
         private fun onUsedToDamageEntity(event: EntityDamageByEntityEvent, priority: EventPriority) {
@@ -36,7 +38,7 @@ interface RebarWeapon {
                 }
 
                 try {
-                    MultiHandler.handleEvent(rebarItemMainHand, "onUsedToDamageEntity", event, priority)
+                    MultiHandlers.handleEvent(rebarItemMainHand, "onUsedToDamageEntity", event, priority)
                 } catch (e: Exception) {
                     RebarItemListener.logEventHandleErr(event, e, rebarItemMainHand)
                 }
@@ -50,7 +52,7 @@ interface RebarWeapon {
                 }
 
                 try {
-                    MultiHandler.handleEvent(rebarItemOffHand, "onUsedToDamageEntity", event, priority)
+                    MultiHandlers.handleEvent(rebarItemOffHand, "onUsedToDamageEntity", event, priority)
                 } catch (e: Exception) {
                     RebarItemListener.logEventHandleErr(event, e, rebarItemOffHand)
                 }
@@ -70,7 +72,7 @@ interface RebarWeapon {
                 }
 
                 try {
-                    MultiHandler.handleEvent(rebarItemMainHand, "onUsedToKillEntity", event, priority)
+                    MultiHandlers.handleEvent(rebarItemMainHand, "onUsedToKillEntity", event, priority)
                 } catch (e: Exception) {
                     RebarItemListener.logEventHandleErr(event, e, rebarItemMainHand)
                 }
@@ -84,7 +86,7 @@ interface RebarWeapon {
                 }
 
                 try {
-                    MultiHandler.handleEvent(rebarItemOffHand, "onUsedToKillEntity", event, priority)
+                    MultiHandlers.handleEvent(rebarItemOffHand, "onUsedToKillEntity", event, priority)
                 } catch (e: Exception) {
                     RebarItemListener.logEventHandleErr(event, e, rebarItemOffHand)
                 }

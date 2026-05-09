@@ -4,23 +4,25 @@ import io.github.pylonmc.rebar.block.BlockListener
 import io.github.pylonmc.rebar.block.BlockListener.logEventHandleErr
 import io.github.pylonmc.rebar.block.BlockStorage
 import io.github.pylonmc.rebar.event.api.MultiListener
-import io.github.pylonmc.rebar.event.api.annotation.MultiHandler
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandlers
 import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.block.BlockFertilizeEvent
 import org.bukkit.event.block.BlockGrowEvent
+import org.jetbrains.annotations.ApiStatus
 
 interface RebarGrowable {
     fun onGrow(event: BlockGrowEvent, priority: EventPriority) {}
     fun onFertilize(event: BlockFertilizeEvent, priority: EventPriority) {}
 
+    @ApiStatus.Internal
     companion object : MultiListener {
         @UniversalHandler
         private fun onBlockGrow(event: BlockGrowEvent, priority: EventPriority) {
             val rebarBlock = BlockStorage.get(event.block)
             if (rebarBlock is RebarGrowable) {
                 try {
-                    MultiHandler.handleEvent(rebarBlock, "onGrow", event, priority)
+                    MultiHandlers.handleEvent(rebarBlock, "onGrow", event, priority)
                 } catch (e: Exception) {
                     BlockListener.logEventHandleErr(event, e, rebarBlock)
                 }
@@ -32,7 +34,7 @@ interface RebarGrowable {
             val rebarBlock = BlockStorage.get(event.block)
             if (rebarBlock is RebarGrowable) {
                 try {
-                    MultiHandler.handleEvent(rebarBlock, "onFertilize", event, priority)
+                    MultiHandlers.handleEvent(rebarBlock, "onFertilize", event, priority)
                 } catch (e: Exception) {
                     BlockListener.logEventHandleErr(event, e, rebarBlock)
                 }

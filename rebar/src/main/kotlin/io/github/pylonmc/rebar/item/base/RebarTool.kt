@@ -1,14 +1,15 @@
 package io.github.pylonmc.rebar.item.base
 
+import io.github.pylonmc.rebar.event.api.MultiListener
+import io.github.pylonmc.rebar.event.api.annotation.MultiHandlers
+import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import io.github.pylonmc.rebar.item.RebarItem
 import io.github.pylonmc.rebar.item.RebarItemListener
 import io.github.pylonmc.rebar.item.research.Research.Companion.canUse
-import io.github.pylonmc.rebar.event.api.MultiListener
-import io.github.pylonmc.rebar.event.api.annotation.MultiHandler
-import io.github.pylonmc.rebar.event.api.annotation.UniversalHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockDamageEvent
+import org.jetbrains.annotations.ApiStatus
 
 interface RebarTool {
     /**
@@ -21,6 +22,7 @@ interface RebarTool {
      */
     fun onUsedToBreakBlock(event: BlockBreakEvent, priority: EventPriority) {}
 
+    @ApiStatus.Internal
     companion object : MultiListener {
         @UniversalHandler
         private fun onUsedToDamageBlock(event: BlockDamageEvent, priority: EventPriority) {
@@ -32,7 +34,7 @@ interface RebarTool {
             }
 
             try {
-                MultiHandler.handleEvent(rebarItem, "onUsedToDamageBlock", event, priority)
+                MultiHandlers.handleEvent(rebarItem, "onUsedToDamageBlock", event, priority)
             } catch (e: Exception) {
                 RebarItemListener.logEventHandleErr(event, e, rebarItem)
             }
@@ -48,7 +50,7 @@ interface RebarTool {
                 }
 
                 try {
-                    MultiHandler.handleEvent(rebarItemMainHand, "onUsedToBreakBlock", event, priority)
+                    MultiHandlers.handleEvent(rebarItemMainHand, "onUsedToBreakBlock", event, priority)
                 } catch (e: Exception) {
                     RebarItemListener.logEventHandleErr(event, e, rebarItemMainHand)
                 }
@@ -62,7 +64,7 @@ interface RebarTool {
                 }
 
                 try {
-                    MultiHandler.handleEvent(rebarItemOffHand, "onUsedToBreakBlock", event, priority)
+                    MultiHandlers.handleEvent(rebarItemOffHand, "onUsedToBreakBlock", event, priority)
                 } catch (e: Exception) {
                     RebarItemListener.logEventHandleErr(event, e, rebarItemOffHand)
                 }
