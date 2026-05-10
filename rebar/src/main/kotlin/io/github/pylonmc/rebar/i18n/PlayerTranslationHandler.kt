@@ -4,6 +4,7 @@ package io.github.pylonmc.rebar.i18n
 
 import io.github.pylonmc.rebar.datatypes.RebarSerializers
 import io.github.pylonmc.rebar.i18n.RebarTranslator.Companion.translate
+import io.github.pylonmc.rebar.i18n.RebarTranslator.Companion.untranslate
 import io.github.pylonmc.rebar.item.RebarItem
 import io.github.pylonmc.rebar.util.editData
 import io.github.pylonmc.rebar.util.rebarKey
@@ -63,6 +64,26 @@ class PlayerTranslationHandler internal constructor(private val player: Player) 
         stack.editData(DataComponentTypes.CONTAINER) { container ->
             val translated = container.contents().map { item ->
                 handleItem(item)
+                item
+            }
+            ItemContainerContents.containerContents(translated)
+        }
+    }
+
+    fun resetItem(stack: ItemStack) {
+        stack.untranslate()
+
+        stack.editData(DataComponentTypes.CHARGED_PROJECTILES) { chargedProjectiles ->
+            val translated = chargedProjectiles.projectiles().map { projectile ->
+                resetItem(projectile)
+                projectile
+            }
+            ChargedProjectiles.chargedProjectiles(translated)
+        }
+
+        stack.editData(DataComponentTypes.CONTAINER) { container ->
+            val translated = container.contents().map { item ->
+                resetItem(item)
                 item
             }
             ItemContainerContents.containerContents(translated)

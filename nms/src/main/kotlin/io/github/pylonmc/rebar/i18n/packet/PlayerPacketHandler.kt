@@ -4,13 +4,9 @@ package io.github.pylonmc.rebar.i18n.packet
 
 import io.github.pylonmc.rebar.Rebar
 import io.github.pylonmc.rebar.i18n.PlayerTranslationHandler
-import io.github.pylonmc.rebar.item.RebarItem
-import io.github.pylonmc.rebar.item.RebarItemSchema
-import io.github.pylonmc.rebar.util.editData
 import io.netty.channel.ChannelDuplexHandler
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelPromise
-import io.papermc.paper.datacomponent.DataComponentTypes
 import net.minecraft.network.HashedPatchMap
 import net.minecraft.network.HashedStack
 import net.minecraft.network.protocol.Packet
@@ -154,10 +150,9 @@ class PlayerPacketHandler(private val player: ServerPlayer, val handler: PlayerT
                 }
             )
 
-            is ServerboundSetCreativeModeSlotPacket -> ServerboundSetCreativeModeSlotPacket(
-                packet.slotNum,
-                reset(packet.itemStack)
-            )
+            is ServerboundSetCreativeModeSlotPacket -> packet.apply {
+                reset(itemStack)
+            }
 
             else -> packet
         }
@@ -242,37 +237,19 @@ class PlayerPacketHandler(private val player: ServerPlayer, val handler: PlayerT
         }
     }
 
-    // no, I have no idea what this does either
-    private fun reset(stack: ItemStack): ItemStack {
-        if (stack.isEmpty) return stack
-        val bukkitStack = CraftItemStack.asCraftMirror(stack)
-        val schema = RebarItemSchema.fromStack(bukkitStack) ?: return stack
-        val prototype = schema.getItemStack()
-        prototype.copyDataFrom(bukkitStack) { it != DataComponentTypes.ITEM_NAME && it != DataComponentTypes.LORE }
-        prototype.editPersistentDataContainer { it.remove(PlayerTranslationHandler.FOOTER_APPENDED) }
-        prototype.amount = bukkitStack.amount
-        val translatedPrototype = prototype.clone()
+    private fun reset(item: ItemStack) {
+        if (item.isEmpty)
         try {
-            handler.handleItem(translatedPrototype)
+            handler.resetItem(CraftItemStack.asCraftMirror(item))
         } catch (e: Throwable) {
+            // Log the error nicely instead of kicking the player off
+            // and causing two days of headache. True story.
             Rebar.logger.log(
                 Level.SEVERE,
                 "An error occurred while handling item translations",
                 e
             )
-            return stack
         }
-        prototype.editData(DataComponentTypes.ITEM_NAME) {
-            val protoName = translatedPrototype.getData(DataComponentTypes.ITEM_NAME)!!
-            val newName = bukkitStack.getData(DataComponentTypes.ITEM_NAME)!!
-            if (protoName != newName) newName else it
-        }
-        prototype.editData(DataComponentTypes.LORE) {
-            val protoLore = translatedPrototype.getData(DataComponentTypes.LORE)!!
-            val newLore = bukkitStack.getData(DataComponentTypes.LORE)!!
-            if (protoLore != newLore) newLore else it
-        }
-        return CraftItemStack.unwrap(prototype)
     }
 
     companion object {
