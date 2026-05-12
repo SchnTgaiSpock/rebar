@@ -12,7 +12,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryCreativeEvent
 import org.bukkit.event.inventory.InventoryType.SlotType
 
-object CreativeActionTranslationHandler : Listener {
+internal object CreativeActionTranslationHandler : Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     fun onCreativeAction(e: InventoryCreativeEvent) {
         PlayerTranslationHandler.resetItem(e.cursor)
