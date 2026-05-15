@@ -26,12 +26,12 @@ interface RebarFire {
 
     /**
      * Called when this fire block ignites block
-     * Spawns copies of this fire block itself after calling, if not cancelled
+     * Spawns copies of this fire block itself after calling, if the event is not cancelled
      */
     fun onIgniteBlock(event: BlockIgniteEvent, priority: EventPriority) {}
 
     /**
-     * Spawns copies of this fire block itself after calling, if not cancelled
+     * Spawns copies of this fire block itself after calling, if the event is not cancelled
      */
     fun onFireSpread(event: BlockSpreadEvent, priority: EventPriority) {}
 
