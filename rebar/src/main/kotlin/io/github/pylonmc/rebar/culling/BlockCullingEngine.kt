@@ -62,7 +62,7 @@ object BlockCullingEngine : Listener {
 
     internal val occludingCache = mutableMapOf<UUID, MutableMap<Long, ChunkData>>()
 
-    @get:ApiStatus.Internal
+    @JvmSynthetic @ApiStatus.Internal
     val blockTextureOctrees = mutableMapOf<UUID, Octree<RebarBlock>>()
     internal val culledBlockOctrees = mutableMapOf<UUID, Octree<RebarBlock>>()
 
