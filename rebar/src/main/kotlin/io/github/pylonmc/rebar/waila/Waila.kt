@@ -14,6 +14,7 @@ import io.github.pylonmc.rebar.util.delayTicks
 import io.github.pylonmc.rebar.util.position.BlockPosition
 import io.github.pylonmc.rebar.util.position.position
 import io.github.pylonmc.rebar.util.rebarKey
+import io.github.pylonmc.rebar.util.vanillaDisplayName
 import io.github.pylonmc.rebar.waila.Waila.Companion.addWailaOverride
 import io.papermc.paper.raytracing.RayTraceTarget
 import kotlinx.coroutines.Job
@@ -23,6 +24,7 @@ import net.kyori.adventure.text.Component
 import org.bukkit.attribute.Attribute
 import org.bukkit.block.Block
 import org.bukkit.entity.Entity
+import org.bukkit.entity.Item
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -153,7 +155,11 @@ class Waila private constructor(private val player: Player, playerConfig: Player
                     ?: entity.let(EntityStorage::get)?.getWaila(player)
 
                 if (display == null && player.wailaConfig.vanillaWailaEnabled) {
-                    display = WailaDisplay(Component.translatable(entity.type.translationKey()))
+                    display = if (entity is Item) {
+                        WailaDisplay(entity.itemStack.effectiveName())
+                    } else {
+                        WailaDisplay(Component.translatable(entity.type.translationKey()))
+                    }
                 }
 
                 if (display != null) {
