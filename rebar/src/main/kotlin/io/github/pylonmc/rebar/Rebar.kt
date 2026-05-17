@@ -202,6 +202,7 @@ object Rebar : JavaPlugin(), RebarAddon {
         RebarFlowerPot.register(this, pm)
         RebarVanillaContainerBlock.register(this, pm)
         RebarHopper.register(this, pm)
+        RebarFire.register(this, pm)
         RebarCargoBlock.register(this, pm)
         RebarCopperBlock.register(this, pm)
         RebarEntityChangedBlock.register(this, pm)
